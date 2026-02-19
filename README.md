@@ -1,4 +1,4 @@
-# Tiny Platformer
+# Mini Platformer
 
 A browser platformer game built with HTML5 canvas featuring:
 - 5 levels with progression
