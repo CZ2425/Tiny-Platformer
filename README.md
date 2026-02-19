@@ -1,4 +1,4 @@
-# make
+# Tiny Platformer
 
 A tiny browser platformer game built with HTML5 canvas.
 
