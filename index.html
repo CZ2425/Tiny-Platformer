@@ -395,7 +395,7 @@
           const x = i * 250 - 40;
           const y = 430 - i * 12;
           ctx.beginPath();
-          ctx.ellipse(x + hillWidth / 2, y, hillWidth / 2, hillHeight, 0, Math.PI, 0, true);
+          ctx.ellipse(x + hillWidth / 2, y + hillHeight, hillWidth / 2, hillHeight, 0, Math.PI, Math.PI * 2);
           ctx.fill();
         }
 
