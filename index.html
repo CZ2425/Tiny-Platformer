@@ -1,0 +1,280 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Mini Platformer</title>
+    <style>
+      :root {
+        color-scheme: dark;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+        background: radial-gradient(circle at top, #2d3f73, #151a2b 55%);
+        color: #ecf2ff;
+      }
+
+      .frame {
+        width: min(900px, 95vw);
+      }
+
+      h1 {
+        margin: 0 0 0.5rem;
+        font-size: clamp(1.2rem, 2vw, 1.8rem);
+      }
+
+      .instructions {
+        margin: 0 0 0.8rem;
+        opacity: 0.9;
+      }
+
+      canvas {
+        width: 100%;
+        aspect-ratio: 16 / 9;
+        border: 2px solid #8da8ff;
+        border-radius: 10px;
+        background: linear-gradient(#75a1ff, #9ed7ff 65%, #95c96b 65%, #5e8a44);
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.35);
+      }
+    </style>
+  </head>
+  <body>
+    <main class="frame">
+      <h1>Mini Platformer</h1>
+      <p class="instructions">Move with A/D or ←/→. Jump with W, ↑, or Space. Reach the golden flag and avoid red enemies. Press R to restart.</p>
+      <canvas id="game" width="960" height="540" aria-label="Platformer game"></canvas>
+    </main>
+
+    <script>
+      const canvas = document.getElementById('game');
+      const ctx = canvas.getContext('2d');
+
+      const keys = new Set();
+      const world = {
+        gravity: 0.75,
+        friction: 0.85,
+      };
+
+      function makeLevel() {
+        return {
+          player: {
+            x: 80,
+            y: 420,
+            w: 34,
+            h: 44,
+            vx: 0,
+            vy: 0,
+            speed: 1.2,
+            jump: -15,
+            onGround: false,
+          },
+          platforms: [
+            { x: 0, y: 500, w: 960, h: 40 },
+            { x: 130, y: 420, w: 180, h: 20 },
+            { x: 360, y: 365, w: 170, h: 20 },
+            { x: 610, y: 310, w: 150, h: 20 },
+            { x: 760, y: 250, w: 110, h: 20 },
+            { x: 500, y: 215, w: 90, h: 20 },
+            { x: 260, y: 170, w: 140, h: 20 },
+          ],
+          enemies: [
+            { x: 165, y: 395, w: 24, h: 24, minX: 140, maxX: 280, vx: 1.4 },
+            { x: 620, y: 285, w: 24, h: 24, minX: 610, maxX: 736, vx: 1.7 },
+            { x: 518, y: 190, w: 24, h: 24, minX: 506, maxX: 555, vx: 1.1 },
+          ],
+          goal: { x: 840, y: 198, w: 20, h: 52 },
+          status: 'playing',
+          message: '',
+        };
+      }
+
+      let level = makeLevel();
+
+      function overlaps(a, b) {
+        return (
+          a.x < b.x + b.w &&
+          a.x + a.w > b.x &&
+          a.y < b.y + b.h &&
+          a.y + a.h > b.y
+        );
+      }
+
+      function update() {
+        const p = level.player;
+
+        if (level.status !== 'playing') return;
+
+        const movingLeft = keys.has('ArrowLeft') || keys.has('a');
+        const movingRight = keys.has('ArrowRight') || keys.has('d');
+        const tryingJump = keys.has('ArrowUp') || keys.has('w') || keys.has(' ');
+
+        if (movingLeft) p.vx -= p.speed;
+        if (movingRight) p.vx += p.speed;
+
+        if (tryingJump && p.onGround) {
+          p.vy = p.jump;
+          p.onGround = false;
+        }
+
+        p.vx *= world.friction;
+        p.vy += world.gravity;
+
+        p.x += p.vx;
+        for (const platform of level.platforms) {
+          if (overlaps(p, platform)) {
+            if (p.vx > 0) p.x = platform.x - p.w;
+            if (p.vx < 0) p.x = platform.x + platform.w;
+            p.vx = 0;
+          }
+        }
+
+        p.y += p.vy;
+        p.onGround = false;
+        for (const platform of level.platforms) {
+          if (overlaps(p, platform)) {
+            if (p.vy > 0) {
+              p.y = platform.y - p.h;
+              p.vy = 0;
+              p.onGround = true;
+            } else if (p.vy < 0) {
+              p.y = platform.y + platform.h;
+              p.vy = 0;
+            }
+          }
+        }
+
+        if (p.x < 0) {
+          p.x = 0;
+          p.vx = 0;
+        }
+        if (p.x + p.w > canvas.width) {
+          p.x = canvas.width - p.w;
+          p.vx = 0;
+        }
+
+        if (p.y > canvas.height + 100) {
+          level.status = 'lost';
+          level.message = 'You fell! Press R to try again.';
+        }
+
+        for (const enemy of level.enemies) {
+          enemy.x += enemy.vx;
+          if (enemy.x < enemy.minX || enemy.x + enemy.w > enemy.maxX) {
+            enemy.vx *= -1;
+          }
+
+          if (overlaps(p, enemy)) {
+            level.status = 'lost';
+            level.message = 'Ouch! A slime got you. Press R to restart.';
+          }
+        }
+
+        if (overlaps(p, level.goal)) {
+          level.status = 'won';
+          level.message = 'You win! Press R to play again.';
+        }
+      }
+
+      function drawBackground() {
+        for (let i = 0; i < 6; i++) {
+          const x = 90 + i * 160;
+          const y = 120 + (i % 2) * 30;
+          ctx.fillStyle = 'rgba(255,255,255,0.18)';
+          ctx.beginPath();
+          ctx.arc(x, y, 30, 0, Math.PI * 2);
+          ctx.arc(x + 35, y + 5, 26, 0, Math.PI * 2);
+          ctx.arc(x - 30, y + 10, 22, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+
+      function draw() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        drawBackground();
+
+        for (const platform of level.platforms) {
+          ctx.fillStyle = '#4f6a37';
+          ctx.fillRect(platform.x, platform.y, platform.w, platform.h);
+          ctx.fillStyle = '#85ba59';
+          ctx.fillRect(platform.x, platform.y, platform.w, 5);
+        }
+
+        for (const enemy of level.enemies) {
+          ctx.fillStyle = '#d84444';
+          ctx.fillRect(enemy.x, enemy.y, enemy.w, enemy.h);
+          ctx.fillStyle = '#fff';
+          ctx.fillRect(enemy.x + 5, enemy.y + 6, 4, 4);
+          ctx.fillRect(enemy.x + 15, enemy.y + 6, 4, 4);
+        }
+
+        const g = level.goal;
+        ctx.fillStyle = '#6f4e37';
+        ctx.fillRect(g.x, g.y, 5, g.h);
+        ctx.fillStyle = '#ffd447';
+        ctx.beginPath();
+        ctx.moveTo(g.x + 5, g.y);
+        ctx.lineTo(g.x + 34, g.y + 10);
+        ctx.lineTo(g.x + 5, g.y + 20);
+        ctx.closePath();
+        ctx.fill();
+
+        const p = level.player;
+        ctx.fillStyle = '#27395c';
+        ctx.fillRect(p.x, p.y, p.w, p.h);
+        ctx.fillStyle = '#b8d6ff';
+        ctx.fillRect(p.x + 8, p.y + 10, 6, 6);
+        ctx.fillRect(p.x + 20, p.y + 10, 6, 6);
+
+        ctx.fillStyle = 'rgba(0,0,0,0.45)';
+        ctx.fillRect(14, 14, 340, 46);
+        ctx.fillStyle = '#fff';
+        ctx.font = '22px sans-serif';
+        ctx.fillText('Reach the flag and avoid slimes!', 24, 44);
+
+        if (level.status !== 'playing') {
+          ctx.fillStyle = 'rgba(0, 0, 0, 0.58)';
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+          ctx.fillStyle = '#fff';
+          ctx.textAlign = 'center';
+          ctx.font = 'bold 54px sans-serif';
+          ctx.fillText(level.status === 'won' ? 'Victory!' : 'Game Over', canvas.width / 2, 230);
+          ctx.font = '28px sans-serif';
+          ctx.fillText(level.message, canvas.width / 2, 285);
+          ctx.textAlign = 'left';
+        }
+      }
+
+      function loop() {
+        update();
+        draw();
+        requestAnimationFrame(loop);
+      }
+
+      window.addEventListener('keydown', (event) => {
+        const key = event.key.length === 1 ? event.key.toLowerCase() : event.key;
+        if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' '].includes(event.key)) {
+          event.preventDefault();
+        }
+
+        if (key === 'r') {
+          level = makeLevel();
+        } else {
+          keys.add(key);
+        }
+      });
+
+      window.addEventListener('keyup', (event) => {
+        const key = event.key.length === 1 ? event.key.toLowerCase() : event.key;
+        keys.delete(key);
+      });
+
+      loop();
+    </script>
+  </body>
+</html>
