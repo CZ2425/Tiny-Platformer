@@ -4,8 +4,7 @@ A browser platformer game built with HTML5 canvas featuring:
 - 5 levels with progression
 - moving platforms
 - spike hazards
-- lava hazards
-- patrolling enemy slimes
+- enemy slimes
 
 ## Run locally
 
